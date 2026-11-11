@@ -1446,6 +1446,153 @@ func main() -> int {
     return 0;
 }`
     }
+  ],
+
+  "tuples-multiple-return": [
+    {
+      title: "Doble Retorno: División con Cociente y Residuo",
+      code: `#include <fundamental.huki>
+
+func div_mod(dividendo: int, divisor: int) -> (int, int) {
+    var q: int = dividendo / divisor;
+    var r: int = dividendo % divisor;
+    return (q, r);
+}
+
+func main() -> int {
+    // 1. Desestructuración inferida en nuevas variables
+    var (cociente, residuo) = div_mod(29, 6);
+    println(f"29 / 6 = {cociente}, residuo = {residuo}"); // 4, 5
+
+    // 2. Desestructuración tipada explícita
+    var (q: int, r: int) = div_mod(100, 7);
+    println(f"100 / 7 = {q}, residuo = {r}"); // 14, 2
+
+    // 3. Reasignación sobre variables existentes
+    (cociente, residuo) = div_mod(50, 8);
+    println(f"50 / 8 = {cociente}, residuo = {residuo}"); // 6, 2
+    return 0;
+}`
+    },
+    {
+      title: "Retorno Heterogéneo de Estado y Mensaje",
+      code: `#include <fundamental.huki>
+
+func validar_edad(edad: int) -> (bool, char*) {
+    if (edad < 0) {
+        return (false, "Error: La edad no puede ser negativa");
+    }
+    if (edad < 18) {
+        return (false, "Advertencia: Requiere autorizacion de tutor");
+    }
+    return (true, "Acceso concedido exitosamente");
+}
+
+func main() -> int {
+    var (autorizado: bool, mensaje: char*) = validar_edad(20);
+    if (autorizado) {
+        println(f"[OK] {mensaje}");
+    } else {
+        println(f"[DENEGADO] {mensaje}");
+    }
+    return 0;
+}`
+    },
+    {
+      title: "Intercambio de Variables (Swap) con Tuplas",
+      code: `#include <fundamental.huki>
+
+func swap(a: int, b: int) -> (int, int) {
+    return (b, a);
+}
+
+func main() -> int {
+    var x: int = 10;
+    var y: int = 99;
+    println(f"Antes:  x={x}, y={y}");
+    (x, y) = swap(x, y);
+    println(f"Despues: x={x}, y={y}");
+    return 0;
+}`
+    }
+  ],
+
+  "memory-safety-stack-probing": [
+    {
+      title: "Buffer Gigante de 64 KB en Stack sin Segfault",
+      code: `#include <fundamental.huki>
+
+func procesar_buffer_pesado() -> void {
+    // Array de 64 KB reservado localmente en el stack:
+    // Itsuki v6.0 emite probing automático página por página (4 KB).
+    // char[65536] ocupa exactamente 65536 bytes (1 byte por elemento).
+    var buffer: char[65536];
+
+    buffer[0] = 'I';
+    buffer[1] = 'T';
+    buffer[2] = 'S';
+    buffer[3] = 'U';
+    buffer[4] = 'K';
+    buffer[5] = 'I';
+    buffer[6] = 0;
+
+    println(f"Buffer seguro en el stack: {buffer}");
+    println("Ejecutado sin fallo de segmentacion ni salto de guard page.");
+}
+
+func main() -> int {
+    procesar_buffer_pesado();
+    return 0;
+}`
+    },
+    {
+      title: "Compactación de Múltiples Buffers Locales",
+      code: `#include <fundamental.huki>
+
+func main() -> int {
+    // 4 buffers de red de 512 bytes cada uno:
+    // Ocupan exactamente 512 * 4 = 2048 bytes en el stack (antes ocupaban 8192 bytes).
+    var b1: char[512];
+    var b2: char[512];
+    var b3: char[512];
+    var b4: char[512];
+
+    b1[0] = 'O'; b1[1] = 'K'; b1[2] = 0;
+    println(f"Estado de buffer 1: {b1}");
+    return 0;
+}`
+    }
+  ],
+
+  "simd-hardware-intrinsics": [
+    {
+      title: "Uso de Intrínsecos de Hardware de 1 Ciclo y Vectorización SIMD",
+      code: `#include <fundamental.huki>
+
+func main() -> int {
+    var mascara: int = 0b10110010;
+    
+    // Conteo de bits en 1 (POPCNT)
+    var unos: int = __builtin_popcount(mascara);
+    println(f"Bits activos en mascara: {unos}"); // 4
+
+    // Conteo de ceros finales (TZCNT)
+    var ceros_fin: int = __builtin_ctz(mascara);
+    println(f"Ceros a la derecha: {ceros_fin}"); // 1
+
+    // Prefetching de memoria para acelerar lectura en caché
+    var datos: int[1024];
+    __builtin_prefetch(&datos[0]);
+
+    // Bucle auto-vectorizado automáticamente a SIMD SSE2 de 128 bits:
+    for (var i: int = 0; i < 1024; i++) {
+        datos[i] = i * 2;
+    }
+
+    println("Computo vectorial y operaciones de CPU completadas.");
+    return 0;
+}`
+    }
   ]
 };
 

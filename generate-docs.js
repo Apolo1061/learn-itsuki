@@ -19,7 +19,7 @@ const docs = {
           summary: "Visión general, características de bajo nivel y arquitectura del compilador.",
           signature: "Itsuki Compiler v6.0.0 (Dual x86_64 / x86_32 + Backend Nativo LLVM / Clang)",
           what: "Itsuki es un lenguaje de programación compilado, fuertemente tipado y de alto rendimiento para programación de sistemas. Genera código máquina nativo puro tanto para 64 bits (x86_64) como para 32 bits (x86_32), enlazando directamente con LLVM/Clang sin máquinas virtuales ni sobrecostos de runtime.",
-          how: "El compilador está implementado en C nativo. Transforma código fuente `.suki` a través de un Lexer robusto, un Parser que construye un AST puro en memoria mediante Arena Allocation, un Type Checker semántico estricto (semantics.c), un Optimizador AST de grado industrial (IPO Inlining, CTFE, Loop Auto-Vectorization SIMD, Linear Scan Register Allocation, TBAA) y un Generador de Código con backend nativo LLVM Clang y fallback GCC.",
+          how: "El compilador está implementado en C nativo. Transforma código fuente `.suki` a través de un Lexer robusto, un Parser que construye un AST puro en memoria mediante Arena Allocation, un Type Checker semántico estricto (semantics.c), un Optimizador AST de grado industrial (IPO Inlining, CTFE, Loop Auto-Vectorization SIMD, Linear Scan Register Allocation, TBAA) y un Generador de Código con backend exclusivo LLVM Clang.",
           examples: [
             {
               title: "Hola Mundo Básico",
@@ -69,7 +69,7 @@ itsuki doctor`
           type: "cli",
           summary: "Referencia de comandos: run, build, test, asm, fmt, doctor, install, list, uninstall.",
           signature: "itsuki <comando> [archivos...] [opciones]",
-          what: "La herramienta de línea de comandos itsuki v6.0.0 ofrece subcomandos integrados para compilar, enlazar con backend nativo LLVM Clang o GCC, correr pruebas unitarias, formatear código (.suki / .huki) y gestionar paquetes.",
+          what: "La herramienta de línea de comandos itsuki v6.0.0 ofrece subcomandos integrados para compilar, enlazar con backend exclusivo LLVM Clang, correr pruebas unitarias, formatear código (.suki / .huki) y gestionar paquetes.",
           how: "El ejecutable itsuki orquesta el preprocesador, compilador, optimizador industrial y el backend LLVM/Clang según el subcomando proporcionado. En modo run, compila y ejecuta directamente. En modo test, descubre funciones test_* y genera un arnés integrado.",
           params: [
             { name: "run <archivos...>", type: "subcomando", desc: "Compila, enlaza con runtime nativo (LLVM) y ejecuta directamente." },
@@ -80,7 +80,7 @@ itsuki doctor`
             { name: "doctor / info", type: "subcomando", desc: "Muestra diagnósticos de CPU, toolchain LLVM y compatibilidad." },
             { name: "-m64 / -m32", type: "flag", desc: "Fuerza arquitectura x86_64 o x86_32 respectivamente." },
             { name: "-O0 a -O3", type: "flag", desc: "Niveles de optimización (IPO, CTFE, Auto-Vectorización SIMD, Live Ranges)." },
-            { name: "--backend=llvm / --backend=gcc", type: "flag", desc: "Selecciona backend de enlace (LLVM Clang por defecto)." },
+            { name: "--backend=llvm", type: "flag", desc: "Backend nativo LLVM Clang (motor exclusivo de compilación y enlace)." },
             { name: "--emit-llvm / --emit-ir", type: "flag", desc: "Genera código intermedio LLVM IR (.ll) o SSA-like (.ir)." },
             { name: "-g, --debug", type: "flag", desc: "Genera metadatos de depuración DWARF nativa (GDB/LLDB)." }
           ],
@@ -103,20 +103,21 @@ itsuki test`
         },
         {
           id: "compiler-arch",
-          title: "Arquitectura y Pipeline del Compilador",
+          title: "Arquitectura y Pipeline del Compilador v6.0",
           category: "guide",
           type: "guide",
-          summary: "Pipeline completo: Preprocesador -> Lexer -> Parser -> Semantics -> Optimizer -> Codegen -> LLVM Clang.",
-          signature: "Source (.suki) -> AST -> Semantics -> Optimized AST -> ASM (.s) -> Linker (LLVM Clang / GCC)",
-          what: "El compilador sigue una arquitectura limpia de fases desacopladas, lo que garantiza velocidad máxima, diagnósticos amigables y ausencia total de fugas de memoria gracias a Bump Allocation.",
-          how: "1. Preprocessor: Expande macros, resuelve directivas #include del sistema y de paquetes GitHub.\\n2. Lexer & Parser: Tokenizan y arman el Árbol de Sintaxis Abstracta (AST) alojando todos los nodos en un bloque contiguo (Arena Allocator).\\n3. Semantic Analysis: Resuelve scopes y valida compatibilidad de tipos estrictamente antes de emitir código.\\n4. Optimizer: Pases de optimización industrial: Inlining IPO, CTFE, Auto-Vectorización SIMD, Live Ranges y TBAA.\\n5. Codegen: Emite instrucciones nativas x86 con manejo de ABI y shadow space, enlazadas vía LLVM Clang.",
+          summary: "Pipeline moderno: Preprocesador -> Lexer -> Parser -> Semantics Estricta -> Safe IPO & Optimizations -> Codegen (Stack Probing) -> Motor LLVM Clang.",
+          signature: "Source (.suki) -> AST -> Strict Semantics -> Safe IPO & SIMD -> Codegen (Stack Probing) -> LLVM Clang",
+          what: "Itsuki v6.0 cuenta con una arquitectura de fases desacopladas de alto rendimiento, libre de fugas mediante Bump Allocation y con backend exclusivo LLVM Clang (con descarte definitivo del backend legacy GCC).",
+          how: "1. Preprocessor: Resuelve #include de sistema y paquetes remotos, macros y directivas #pragma once.\\n2. Lexer & Parser: Generan el AST mediante Arena Allocation contigua sin llamadas individuales a malloc.\\n3. Semantic Analysis: Verificación estricta de tipos. Valida que el operador '*' solo aplique a punteros T* y que '&' solo opere sobre lvalues direccionables.\\n4. Safe IPO & Optimizer: Inlining seguro que aísla slots de parámetros (base_slot >= max_caller_slot) para evitar corrupción de variables locales, CTFE para evaluación en compilación y auto-vectorización de bucles.\\n5. Codegen & Stack Probing: Emisión x86/x64 con sondeo automático de páginas de guarda (Stack Probing para frames > 4096 bytes en Windows) y compactación contigua de 1 byte por elemento en arrays locales (char[N]).\\n6. Linker: Enlace nativo con LLVM Clang como motor exclusivo.",
           examples: [
             {
-              title: "Inspeccionar el ensamblador resultante",
+              title: "Inspeccionar el ensamblador nativo emitido",
               code: `# Inspeccionar el código ensamblador emitido:
-itsuki asm hola.suki
+itsuki asm hola.suki -o hola.s
 
-# Ver el archivo hola.s generado con las directivas x86`
+# Compilación y enlace binario optimizado con LLVM Clang:
+itsuki build hola.suki -O3 -o hola.exe`
             }
           ]
         },
@@ -222,16 +223,16 @@ var deducido = 42; // auto deducido a int`
         },
         {
           id: "functions",
-          title: "Funciones y Funciones Variádicas",
+          title: "Funciones, Retorno Múltiple y Variádicas",
           category: "syntax",
           type: "syntax",
-          summary: "Definición con func / fn, parámetros tipados, valor de retorno y parámetros variádicos (...).",
+          summary: "Definición con func / fn, parámetros tipados, retorno simple o múltiple -> (T1, T2) y parámetros variádicos (...).",
           signature: "func <nombre>(<param>: <tipo>, ...) -> <tipo_retorno> { ... }",
-          what: "Las funciones se definen con la palabra reservada func (o fn). Los parámetros son obligatorios con su tipo y el tipo de retorno se especifica con ->. Admite funciones variádicas con sintaxis '...' para aceptar número variable de argumentos al estilo printf.",
-          how: "En 64 bits bajo Windows, los primeros 4 parámetros se transmiten en registros (%rcx, %rdx, %r8, %r9) con Shadow Space de 32 bytes. En SysV AMD64 (Linux), se transmiten en (%rdi, %rsi, %rdx, %rcx, %r8, %r9). El optimizador aplica Inlining Interprocedimental (IPO) a funciones hoja compactas (<= 12 sentencias) eliminando el costo de llamada.",
+          what: "Las funciones se definen con la palabra reservada func (o fn). Los parámetros son obligatorios con su tipo y el tipo de retorno se especifica con ->. Soporta retornos simples (int, char*, void) o tuplas de retorno múltiple (doble retorno) como -> (int, int). Admite funciones variádicas con sintaxis '...' para aceptar argumentos variables al estilo printf.",
+          how: "En 64 bits bajo Windows, los primeros 4 parámetros se transmiten en registros (%rcx, %rdx, %r8, %r9) con Shadow Space de 32 bytes. En SysV AMD64 (Linux), se transmiten en (%rdi, %rsi, %rdx, %rcx, %r8, %r9). Para retorno múltiple (doble retorno), los valores se empaquetan en registros rápidos de retorno (%rax / %rdx) o punteros de retorno en stack. El optimizador aplica Inlining Seguro (Safe IPO) garantizando que los parámetros de la función inlineada nunca pisen las variables del llamador.",
           examples: [
             {
-              title: "Funciones con retorno y variádicas",
+              title: "Funciones con retorno simple y variádicas",
               code: `func sumar(a: int, b: int) -> int {
     return a + b;
 }
@@ -249,25 +250,188 @@ func main() -> int {
           ]
         },
         {
-          id: "pointers",
-          title: "Punteros y Memoria Directa",
+          id: "tuples-multiple-return",
+          title: "Tuplas y Retorno Múltiple (Doble Retorno)",
           category: "syntax",
           type: "syntax",
-          summary: "Operadores & (dirección), * (desreferencia) y -> (acceso a miembro de puntero).",
-          signature: "var p: int* = &x;  *p = 50;  ptr->campo = 10;",
-          what: "Itsuki permite acceso y manipulación directa de memoria a través de punteros con sintaxis idéntica a C pero con mayor legibilidad.",
-          how: "Los punteros ocupan 8 bytes en modo 64 bits y 4 bytes en modo 32 bits. El operador & genera la instrucción leaq/leal, y la desreferencia * genera accesos indirectos de memoria tipo movl (%rax), %edx.",
+          summary: "Retorno múltiple de valores con -> (T1, T2), empaquetado return (a, b) y desestructuración con var (x, y) = f().",
+          signature: "func div_mod(a: int, b: int) -> (int, int) { return (a / b, a % b); }\nvar (cociente, residuo) = div_mod(20, 3);",
+          what: "Itsuki soporta retorno múltiple nativo a través de tipos de tupla (T1, T2, ...). Permite que una función devuelva dos o más valores sin requerir structs intermedios ni punteros de salida manuales. El llamador puede desestructurar el resultado directamente en nuevas variables declaradas o reasignar variables existentes.",
+          how: "1. Declaración de firma: Se define la tupla de tipos de retorno en la cabecera: func f() -> (int, char*) o fn div_mod(...) -> (int, int).\n2. Retorno: Se utiliza la expresión de tupla return (val1, val2);.\n3. Desestructuración inferida: var (a, b) = f(); declara nuevas variables deduciendo automáticamente sus tipos.\n4. Desestructuración con tipo explícito: var (q: int, r: int) = f(); valida los tipos de forma estricta en compilación.\n5. Reasignación de tuplas existentes: (a, b) = f(); o swapping directo (x, y) = (y, x);.\n6. ABI y Eficiencia: En x86/x64, el primer elemento se pasa en %rax / %eax y el segundo en %rdx / %edx o en un registro secundario contiguo sin costo de asignación dinámica.",
+          params: [
+            { name: "-> (T1, T2, ...)", type: "firma de retorno", desc: "Declara una tupla como tipo de retorno de la función." },
+            { name: "return (v1, v2);", type: "expresión de retorno", desc: "Empaqueta los valores retornados en la tupla resultante." },
+            { name: "var (a, b) = expr;", type: "desestructuración", desc: "Declara variables nuevas deduciendo tipos automáticamente." },
+            { name: "var (a: T1, b: T2) = expr;", type: "desestructuración tipada", desc: "Declara variables nuevas con tipos explícitos validados." },
+            { name: "(a, b) = expr;", type: "asignación múltiple", desc: "Asigna los valores de la tupla a variables ya existentes." }
+          ],
           examples: [
             {
-              title: "Uso de punteros y modificación en memoria",
-              code: `fn duplicar(num: int*) -> void {
+              title: "Doble Retorno: División con Cociente y Residuo",
+              code: `#include <fundamental.huki>
+
+// Función con retorno múltiple: devuelve cociente y residuo simultáneamente
+func div_mod(dividendo: int, divisor: int) -> (int, int) {
+    var q: int = dividendo / divisor;
+    var r: int = dividendo % divisor;
+    return (q, r);
+}
+
+func main() -> int {
+    // 1. Desestructuración automática en nuevas variables:
+    var (cociente, residuo) = div_mod(29, 6);
+    println(f"29 / 6 = {cociente}, residuo = {residuo}"); // 4, 5
+
+    // 2. Desestructuración con anotación de tipos explícita:
+    var (q: int, r: int) = div_mod(100, 7);
+    println(f"100 / 7 = {q}, residuo = {r}"); // 14, 2
+
+    // 3. Reasignación sobre variables existentes:
+    (cociente, residuo) = div_mod(50, 8);
+    println(f"50 / 8 = {cociente}, residuo = {residuo}"); // 6, 2
+    return 0;
+}`
+            },
+            {
+              title: "Retorno Múltiple Heterogéneo: Estado Booleano y Mensaje",
+              code: `#include <fundamental.huki>
+
+func validar_edad(edad: int) -> (bool, char*) {
+    if (edad < 0) {
+        return (false, "Error: La edad no puede ser negativa");
+    }
+    if (edad < 18) {
+        return (false, "Advertencia: Requiere autorizacion de tutor");
+    }
+    return (true, "Acceso concedido exitosamente");
+}
+
+func main() -> int {
+    var (autorizado: bool, mensaje: char*) = validar_edad(20);
+    if (autorizado) {
+        println(f"[OK] {mensaje}");
+    } else {
+        println(f"[DENEGADO] {mensaje}");
+    }
+    return 0;
+}`
+            },
+            {
+              title: "Intercambio de Variables (Swap) con Tuplas",
+              code: `#include <fundamental.huki>
+
+func swap(a: int, b: int) -> (int, int) {
+    return (b, a);
+}
+
+func main() -> int {
+    var x: int = 10;
+    var y: int = 99;
+    println(f"Antes:  x={x}, y={y}");
+
+    // Intercambio sin variable temporal manual
+    (x, y) = swap(x, y);
+    println(f"Despues: x={x}, y={y}");
+    return 0;
+}`
+            }
+          ]
+        },
+        {
+          id: "pointers",
+          title: "Punteros, Memoria Directa y Verificación Estricta",
+          category: "syntax",
+          type: "syntax",
+          summary: "Operadores & (lvalues obligatorios), * (desreferencia estricta sobre punteros) y -> (acceso a campos).",
+          signature: "var p: int* = &x;  *p = 50;  ptr->campo = 10;",
+          what: "Itsuki ofrece acceso y manipulación directa de memoria a través de punteros con velocidad nativa de bajo nivel, combinada con comprobaciones semánticas estrictas en compilación que eliminan fallos silenciosos de memoria.",
+          how: "1. Desreferencia estricta (*): El frontend semántico comprueba que el operando de * sea estrictamente de tipo puntero (T*). Si se aplica sobre tipos escalares (por ejemplo *x donde x es int), emite un error de compilación explícito con columna exacta, previniendo segfaults en tiempo de ejecución.\\n2. Dirección válida (&): El operador & exige una expresión lvalue direccionable (variable local, parámetro, campo de struct o elemento de array). Queda prohibido aplicar & sobre literales o rvalues temporales como &(a + b).\\n3. Inlining Seguro con Punteros: El optimizador garantiza el aislamiento de slots en llamadas inlineadas con parámetros por puntero (*num = (*num) * 2): los temporales de la función inlineada se reservan estrictamente más allá del slot máximo de variables locales del llamador (base_slot >= max_caller_slot), impidiendo que se pise el valor de las variables vivas.\\n4. Tamaño: Los punteros ocupan 8 bytes en x86_64 y 4 bytes en x86_32.",
+          examples: [
+            {
+              title: "Mutación por puntero e Inlining Seguro",
+              code: `#include <fundamental.huki>
+
+fn duplicar(num: int*) -> void {
     *num = (*num) * 2;
 }
 
 fn main() -> void {
     var x: int = 21;
+    // Con Inlining Safe IPO, x no es pisoteado por los temporales del callee:
     duplicar(&x);
-    println(f"El valor duplicado es: {x}"); // 42
+    println(f"El valor duplicado es: {x}"); // Correcto: 42 en todos los niveles -O0 a -O3
+
+    var ptr: int* = &x;
+    *ptr = 100;
+    println(f"Valor modificado directamente: {*ptr}"); // 100
+}`
+            },
+            {
+              title: "Detección Estricta de Errores de Puntero en Compilación",
+              code: `// En tiempo de compilación, Itsuki v6.0 rechaza desreferencias inválidas:
+var x: int = 42;
+// var y: int = *x;    // ERROR: el operador '*' requiere un tipo puntero, 'x' es 'int'
+// var p: int* = &(5); // ERROR: el operador '&' requiere un lvalue direccionable`
+            }
+          ]
+        },
+        {
+          id: "memory-safety-stack-probing",
+          title: "Seguridad de Memoria y Stack Probing",
+          category: "syntax",
+          type: "syntax",
+          summary: "Protección de Guard Pages en Windows x86/x64, Stack Probing automático para frames > 4096 bytes y compactación de arrays.",
+          signature: "var buffer: char[65536];  // Stack probing automático y seguro en Windows",
+          what: "Itsuki incorpora protección automática de páginas de guarda del sistema operativo (Stack Probing) y compactación óptima de memoria para arrays locales. Permite reservar buffers de gran tamaño en la pila (8 KB, 32 KB, 64 KB o más) sin disparar violaciones de acceso (Segmentation Fault) al inicio de la función.",
+          how: "1. Windows Guard Page Probing: En Windows, la memoria del stack crece dinámicamente página por página (4096 bytes = 4 KB) supervisada por una 'guard page'. Si una función declara arrays locales grandes y emite un salto directo 'sub esp, N' mayor a 4 KB, el puntero de pila 'esp' salta la página de guarda. El primer acceso posterior escribe en memoria reservada no comprometida y provoca un crash por SIGSEGV antes de ejecutar la primera línea de la función. Itsuki detecta cuando frame_size > 4096 y emite automáticamente en el prólogo un bucle de sondeo (stack probe loop) que toca cada página en orden descendente, garantizando que el sistema operativo comprometa la memoria de forma transparente.\\n2. Compactación de Arrays de 1 Byte: Tipos de 8 bits como char[N], int8[N], uint8[N] y bool[N] ocupan exactamente 1 byte por elemento en el stack (en lugar de los 4 bytes de versiones anteriores). Un array char[2048] ocupa 2048 bytes exactos en vez de 8192 bytes, reduciendo el consumo de stack un 75% (4x menos memoria de pila).\\n3. Cobertura: Funciona tanto en 32 bits como en 64 bits de forma idéntica.",
+          params: [
+            { name: "Stack Probing Loop", type: "protección kernel", desc: "Bucle automático en prólogo para frames > 4096 bytes que asegura el compromiso de páginas de guarda." },
+            { name: "char[N] (1 byte/elem)", type: "layout contiguo", desc: "Compactación estricta de 1 byte por elemento en arrays locales, reduciendo 4x el tamaño del stack." },
+            { name: "uint8[N] / int8[N] / bool[N]", type: "layout contiguo", desc: "Compactación a nivel de byte para datos binarios y booleanos en stack." }
+          ],
+          examples: [
+            {
+              title: "Buffer Gigante de 64 KB en Stack sin Segfault",
+              code: `#include <fundamental.huki>
+
+func procesar_buffer_pesado() -> void {
+    // Array de 64 KB reservado localmente en el stack:
+    // Itsuki v6.0 emite probing automático página por página (4 KB).
+    // char[65536] ocupa exactamente 65536 bytes (1 byte por elemento).
+    var buffer: char[65536];
+
+    buffer[0] = 'I';
+    buffer[1] = 'T';
+    buffer[2] = 'S';
+    buffer[3] = 'U';
+    buffer[4] = 'K';
+    buffer[5] = 'I';
+    buffer[6] = 0;
+
+    println(f"Buffer seguro en el stack: {buffer}");
+    println("Ejecutado sin fallo de segmentacion ni salto de guard page.");
+}
+
+func main() -> int {
+    procesar_buffer_pesado();
+    return 0;
+}`
+            },
+            {
+              title: "Compactación de Múltiples Buffers Locales",
+              code: `#include <fundamental.huki>
+
+func main() -> int {
+    // 4 buffers de red de 512 bytes cada uno:
+    // Ocupan exactamente 512 * 4 = 2048 bytes en el stack (antes ocupaban 8192 bytes).
+    var b1: char[512];
+    var b2: char[512];
+    var b3: char[512];
+    var b4: char[512];
+
+    b1[0] = 'O'; b1[1] = 'K'; b1[2] = 0;
+    println(f"Estado de buffer 1: {b1}");
+    return 0;
 }`
             }
           ]
@@ -1927,7 +2091,7 @@ fn main() -> void {
           summary: "Llamar funciones C mediante 'extern' y compilar código C y Suki conjuntamente.",
           signature: "extern fn nombre_en_c(param: tipo) -> tipo;",
           what: "Itsuki no necesita envoltorios complejos ni capas de traducción (FFI lento): al emitir código nativo compatible con la ABI estándar de C, puede invocar cualquier biblioteca o función C directamente a velocidad de ensamblador.",
-          how: "Las declaraciones extern le indican al parser y al type-checker que la función existe externamente. El generador emite una llamada estándar call nombre_en_c y el enlazador (GCC) resuelve el símbolo contra archivos .c, bibliotecas .a o DLLs del sistema.",
+          how: "Las declaraciones extern le indican al parser y al type-checker que la función existe externamente. El generador emite una llamada estándar call nombre_en_c y el enlazador (LLVM Clang) resuelve el símbolo contra archivos .c, bibliotecas .a o DLLs del sistema.",
           examples: [
             {
               title: "Invocación directa de función C",
@@ -1962,6 +2126,53 @@ fn main() -> void {
     __asm__("    nop");
     __asm__("    # Instruccion ensamblador nativa");
     println("Codigo ensamblador ejecutado correctamente");
+}`
+            }
+          ]
+        },
+        {
+          id: "simd-hardware-intrinsics",
+          title: "Vectorización SIMD y Hardware Intrinsics",
+          category: "interop",
+          type: "guide",
+          summary: "Instrucciones de CPU a 1 ciclo: __builtin_popcount, __builtin_clz, __builtin_ctz, __builtin_prefetch y SSE2.",
+          signature: "__builtin_popcount(n) | __builtin_clz(n) | __builtin_ctz(n) | __builtin_prefetch(ptr)",
+          what: "Itsuki expone intrínsecos de hardware directos del microprocesador para ejecutar instrucciones vectoriales y operaciones a nivel de bit en un solo ciclo de CPU, sin sobrecostos de llamadas de función.",
+          how: "1. Conteo de Bits y Ceros: __builtin_popcount(x) emite la instrucción nativa POPCNT de CPU. __builtin_clz(x) emite BSR/LZCNT para contar ceros iniciales (leading zeros). __builtin_ctz(x) emite BSF/TZCNT para ceros finales (trailing zeros).\\n2. Byte Swapping: __builtin_bswap32(x) y __builtin_bswap64(x) emiten instrucciones BSWAP para inversión instantánea de endianness de red (Big-Endian <-> Little-Endian).\\n3. Prefetching de Memoria: __builtin_prefetch(ptr) emite la instrucción prefetcht0 de CPU para precargar líneas de datos en la caché L1/L2 antes de iteraciones intensivas.\\n4. Auto-Vectorización SIMD: Con el optimizador activado (-O2 o -O3), bucles for canónicos sobre arrays contiguos de enteros se transforman automáticamente en instrucciones vectoriales SSE2 de 128 bits (paddd, movdqu), procesando 4 elementos por ciclo de reloj.",
+          params: [
+            { name: "__builtin_popcount(val)", type: "función intrínseca", desc: "Retorna el número de bits en 1 (POPCNT) en 1 ciclo de reloj." },
+            { name: "__builtin_clz(val)", type: "función intrínseca", desc: "Retorna el número de bits cero iniciales más significativos (LZCNT / BSR)." },
+            { name: "__builtin_ctz(val)", type: "función intrínseca", desc: "Retorna el número de bits cero finales menos significativos (TZCNT / BSF)." },
+            { name: "__builtin_prefetch(ptr)", type: "función intrínseca", desc: "Carga predictiva de la línea de caché de memoria en CPU L1." },
+            { name: "__builtin_bswap32(val)", type: "función intrínseca", desc: "Invierte el orden de los 4 bytes de un entero de 32 bits (BSWAP)." }
+          ],
+          examples: [
+            {
+              title: "Uso de Intrínsecos de Hardware de 1 Ciclo",
+              code: `#include <fundamental.huki>
+
+func main() -> int {
+    var mascara: int = 0b10110010;
+    
+    // Conteo de bits en 1 (POPCNT)
+    var unos: int = __builtin_popcount(mascara);
+    println(f"Bits activos en mascara: {unos}"); // 4
+
+    // Conteo de ceros finales (TZCNT)
+    var ceros_fin: int = __builtin_ctz(mascara);
+    println(f"Ceros a la derecha: {ceros_fin}"); // 1
+
+    // Prefetching de memoria para acelerar lectura en caché
+    var datos: int[1024];
+    __builtin_prefetch(&datos[0]);
+
+    // Bucle auto-vectorizado automáticamente a SIMD SSE2 de 128 bits:
+    for (var i: int = 0; i < 1024; i++) {
+        datos[i] = i * 2;
+    }
+
+    println("Computo vectorial y operaciones de CPU completadas.");
+    return 0;
 }`
             }
           ]
