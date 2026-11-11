@@ -1275,6 +1275,177 @@ var n_largo: int = atol("987654321");
 var c_fin: int = clock();
 println(f"Numero: {n_largo}, Ciclos: {c_fin - c_ini}");`
     }
+  ],
+
+  "industrial-optimizations": [
+    {
+      title: "CTFE (Compile-Time Function Evaluation)",
+      code: `#include <fundamental.huki>
+
+func const_fib(n: int) -> int {
+    if (n <= 1) { return n; }
+    return const_fib(n - 1) + const_fib(n - 2);
+}
+
+func main() -> int {
+    // Evaluado en tiempo de compilación a 55 sin costo en runtime:
+    var fib10: int = const_fib(10);
+    println(f"Fibonacci(10) calculado por el compilador: {fib10}");
+    return 0;
+}`
+    },
+    {
+      title: "Auto-Vectorización SIMD de Bucles",
+      code: `#include <fundamental.huki>
+
+func main() -> int {
+    var a: int[64];
+    var b: int[64];
+    var c: int[64];
+
+    // Este bucle se auto-vectoriza a instrucciones SSE2/AVX de 128-bit:
+    for (var i: int = 0; i < 64; i++) {
+        c[i] = a[i] + b[i];
+    }
+    return 0;
+}`
+    }
+  ],
+
+  "classes-methods": [
+    {
+      title: "Polimorfismo Dinámico (VTables) y Devirtualización",
+      code: `#include <fundamental.huki>
+
+class Dispositivo {
+public:
+    virtual func encender() -> int { return 1; }
+    virtual func potencia() -> int { return 10; }
+};
+
+class Servidor :-: Dispositivo {
+public:
+    override func encender() -> int { return 100; }
+    override func potencia() -> int { return 500; }
+};
+
+func activar(d: Dispositivo*) -> int {
+    // Dynamic Dispatch vía VTable (tipo desconocido en compilación)
+    return d->encender() + d->potencia();
+}
+
+func main() -> int {
+    var srv: Servidor;
+    // Devirtualización estática (costo 0 ns, llamada directa):
+    println(srv.encender());
+
+    // Polimorfismo dinámico:
+    println(activar(&srv));
+    return 0;
+}`
+    }
+  ],
+
+  "fundamental-memory-allocators": [
+    {
+      title: "Arena Allocator: Cero fragmentación O(1)",
+      code: `#include <fundamental.huki>
+using namespace fundamental;
+
+func main() -> int {
+    // Reserva un bloque continuo de 2 MB
+    var arena: Arena* = arena_create(2 * 1024 * 1024);
+
+    // Asignaciones ultra-rápidas en 1 ciclo
+    var buf1: void* = arena_alloc(arena, 512);
+    var buf2: void* = arena_alloc(arena, 1024);
+
+    // Libera todos los bloques instantáneamente O(1)
+    arena_reset(arena);
+    arena_destroy(arena);
+    return 0;
+}`
+    },
+    {
+      title: "Slab Pool Allocator: Piscina de objetos fijos",
+      code: `#include <fundamental.huki>
+using namespace fundamental;
+
+func main() -> int {
+    // Piscina para 500 objetos de 32 bytes cada uno
+    var pool: SlabPool* = slab_create(32, 500);
+
+    var obj1: void* = slab_alloc(pool);
+    var obj2: void* = slab_alloc(pool);
+
+    slab_free(pool, obj1);
+    slab_destroy(pool);
+    return 0;
+}`
+    }
+  ],
+
+  "fundamental-sstring": [
+    {
+      title: "Small String Optimization (SSO)",
+      code: `#include <fundamental.huki>
+using namespace fundamental;
+
+func main() -> int {
+    var s: SString;
+    sstring_init(&s, "Itsuki Fast");
+    sstring_append(&s, " String");
+
+    // Hasta 24 caracteres vive 100% en el stack (is_heap = 0)
+    println(sstring_c_str(&s));
+    sstring_free(&s);
+    return 0;
+}`
+    }
+  ],
+
+  "fundamental-simd": [
+    {
+      title: "Operaciones vectoriales SIMD de 128-bit",
+      code: `#include <fundamental.huki>
+using namespace fundamental;
+
+func main() -> int {
+    var a: int[32];
+    var b: int[32];
+    var c: int[32];
+
+    simd_set_i32(a, 15, 32);
+    simd_set_i32(b, 25, 32);
+
+    // Suma 32 enteros procesando 4 por instrucción vectorial:
+    simd_add_i32(a, b, c, 32);
+
+    println(f"Resultado c[0]: {c[0]} (esperado 40)");
+    return 0;
+}`
+    }
+  ],
+
+  "fundamental-intrinsics": [
+    {
+      title: "Intrínsecos de CPU en 1 ciclo",
+      code: `#include <fundamental.huki>
+
+func main() -> int {
+    // POPCNT (conteo de bits en 1)
+    var bits: int = __builtin_popcount(0b11010111);
+    println(f"Bits en 1: {bits}"); // 6
+
+    // BSWAP32 (inversión endianness)
+    var swapped: int = __builtin_bswap32(0xAABBCCDD);
+
+    // SQRT (raíz cuadrada hardware SSE)
+    var r: double = __builtin_sqrt(144.0);
+    println(f"Raiz: {r}"); // 12.0
+    return 0;
+}`
+    }
   ]
 };
 

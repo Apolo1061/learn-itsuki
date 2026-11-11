@@ -57,16 +57,16 @@
     if (!code) return "";
 
     const keywords = new Set([
-      "fn", "var", "const", "return", "if", "else", "while", "for",
+      "fn", "func", "var", "const", "auto", "return", "if", "else", "while", "for",
       "struct", "class", "union", "typedef", "enum", "using", "namespace",
-      "extern", "inline", "static", "public", "private", "this", "sizeof",
+      "extern", "inline", "static", "public", "private", "virtual", "override", "trait", "this", "sizeof",
       "break", "continue", "switch", "case", "default", "__asm__", "true", "false", "null"
     ]);
 
     const types = new Set([
-      "int", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64",
+      "int", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "usize",
       "float", "double", "char", "bool", "void", "string", "Vector", "Result", "DateTime",
-      "Benchmark", "size_t"
+      "Benchmark", "size_t", "Arena", "SlabPool", "SString"
     ]);
 
     const tokenRegex = /(\/\/[^\n]*)|(#[a-zA-Z_]\w*)|(f?"(?:\\.|[^"\\])*"|'[^']*')|(0x[0-9a-fA-F]+|\b\d+(?:\.\d+)?\b)|(\b[a-zA-Z_][a-zA-Z0-9_]*\b)|([<>&])/g;

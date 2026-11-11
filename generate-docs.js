@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 const docs = {
-  version: "5.5.0",
-  lastUpdated: "2026-10-20",
+  version: "6.0.0",
+  lastUpdated: "2026-11-10",
   categories: [
     {
       id: "guide",
@@ -17,16 +17,17 @@ const docs = {
           category: "guide",
           type: "guide",
           summary: "Visión general, características de bajo nivel y arquitectura del compilador.",
-          signature: "Itsuki Compiler v5.5.0 (Dual x86_64 / x86_32)",
-          what: "Itsuki es un lenguaje de programación compilado, fuertemente tipado y de alto rendimiento. Genera código ensamblador nativo puro GNU as/GAS tanto para 64 bits (x86_64) como para 32 bits (x86_32), sin máquinas virtuales ni sobrecostos de runtime.",
-          how: "El compilador está implementado en C nativo. Transforma código fuente `.suki` a través de un Lexer con modo de pánico, un Parser que construye un AST puro en memoria mediante un Arena Allocator de un solo paso, un Type Checker semántico estricto (semantics.c), un Optimizador AST que pliega constantes y elimina código muerto, y un Generador de Código que emite ensamblador x86_64 compatible con las ABIs Microsoft x64 y System V AMD64.",
+          signature: "Itsuki Compiler v6.0.0 (Dual x86_64 / x86_32 + Backend Nativo LLVM / Clang)",
+          what: "Itsuki es un lenguaje de programación compilado, fuertemente tipado y de alto rendimiento para programación de sistemas. Genera código máquina nativo puro tanto para 64 bits (x86_64) como para 32 bits (x86_32), enlazando directamente con LLVM/Clang sin máquinas virtuales ni sobrecostos de runtime.",
+          how: "El compilador está implementado en C nativo. Transforma código fuente `.suki` a través de un Lexer robusto, un Parser que construye un AST puro en memoria mediante Arena Allocation, un Type Checker semántico estricto (semantics.c), un Optimizador AST de grado industrial (IPO Inlining, CTFE, Loop Auto-Vectorization SIMD, Linear Scan Register Allocation, TBAA) y un Generador de Código con backend nativo LLVM Clang y fallback GCC.",
           examples: [
             {
               title: "Hola Mundo Básico",
               code: `#include <fundamental.huki>
 
-fn main() -> void {
-    println("¡Hola desde el lenguaje Itsuki v5.5!");
+func main() -> int {
+    println("¡Hola desde el lenguaje Itsuki v6.0!");
+    return 0;
 }`
             }
           ]
@@ -66,29 +67,36 @@ itsuki doctor`
           title: "Comandos del Compilador (CLI)",
           category: "guide",
           type: "cli",
-          summary: "Referencia de comandos: run, build, test, asm, doctor, install, list, uninstall.",
-          signature: "itsuki <comando> [archivo.suki] [opciones]",
-          what: "La herramienta de línea de comandos itsuki ofrece subcomandos integrados para compilar, ejecutar sobre la marcha, correr pruebas unitarias, examinar ensamblador y gestionar paquetes.",
-          how: "El ejecutable itsuki orquesta el preprocesador, compilador, optimizador y el linker GCC según el subcomando proporcionado. En modo run, crea un binario temporal, lo ejecuta y limpia los artefactos. En modo test, genera un arnés que ejecuta y cronometra cada prueba.",
+          summary: "Referencia de comandos: run, build, test, asm, fmt, doctor, install, list, uninstall.",
+          signature: "itsuki <comando> [archivos...] [opciones]",
+          what: "La herramienta de línea de comandos itsuki v6.0.0 ofrece subcomandos integrados para compilar, enlazar con backend nativo LLVM Clang o GCC, correr pruebas unitarias, formatear código (.suki / .huki) y gestionar paquetes.",
+          how: "El ejecutable itsuki orquesta el preprocesador, compilador, optimizador industrial y el backend LLVM/Clang según el subcomando proporcionado. En modo run, compila y ejecuta directamente. En modo test, descubre funciones test_* y genera un arnés integrado.",
           params: [
-            { name: "run <file.suki>", type: "subcomando", desc: "Compila el archivo a memoria/temporal y lo ejecuta inmediatamente." },
-            { name: "build <file.suki> -o <bin>", type: "subcomando", desc: "Genera un ejecutable binario permanente optimizado." },
-            { name: "test [archivo.suki]", type: "subcomando", desc: "Descubre y corre todas las funciones de prueba (prefijo test_*)." },
-            { name: "asm <file.suki>", type: "subcomando", desc: "Emite el archivo ensamblador nativo (.s) generado." },
+            { name: "run <archivos...>", type: "subcomando", desc: "Compila, enlaza con runtime nativo (LLVM) y ejecuta directamente." },
+            { name: "build <archivos...> [-o bin]", type: "subcomando", desc: "Genera un ejecutable binario permanente optimizado con LLVM Clang." },
+            { name: "test [archivos...]", type: "subcomando", desc: "Descubre y corre todas las funciones de prueba con prefijo test_*." },
+            { name: "asm <archivos...>", type: "subcomando", desc: "Emite el código ensamblador nativo (.s) generado." },
+            { name: "fmt [archivos...] [--check]", type: "subcomando", desc: "Formatea automáticamente código fuente (.suki / .huki)." },
+            { name: "doctor / info", type: "subcomando", desc: "Muestra diagnósticos de CPU, toolchain LLVM y compatibilidad." },
             { name: "-m64 / -m32", type: "flag", desc: "Fuerza arquitectura x86_64 o x86_32 respectivamente." },
-            { name: "doctor", type: "subcomando", desc: "Muestra diagnósticos de CPU, GCC, multilib y flags." },
-            { name: "install <repo>", type: "subcomando", desc: "Descarga un paquete de GitHub a ~/.itsuki/packages/." }
+            { name: "-O0 a -O3", type: "flag", desc: "Niveles de optimización (IPO, CTFE, Auto-Vectorización SIMD, Live Ranges)." },
+            { name: "--backend=llvm / --backend=gcc", type: "flag", desc: "Selecciona backend de enlace (LLVM Clang por defecto)." },
+            { name: "--emit-llvm / --emit-ir", type: "flag", desc: "Genera código intermedio LLVM IR (.ll) o SSA-like (.ir)." },
+            { name: "-g, --debug", type: "flag", desc: "Genera metadatos de depuración DWARF nativa (GDB/LLDB)." }
           ],
           examples: [
             {
               title: "Uso diario de CLI",
-              code: `# Ejecución directa
+              code: `# Ejecución directa con optimizaciones y backend LLVM
 itsuki run mi_script.suki
 
-# Compilación optimizada a 64 bits
-itsuki build mi_script.suki -m64 -o programa.exe
+# Compilación binaria optimizada a 64 bits con Clang
+itsuki build mi_script.suki -m64 -O3 -o programa.exe
 
-# Ejecutar test suite
+# Formatear archivos automáticamente
+itsuki fmt mi_script.suki
+
+# Ejecutar test suite integrada
 itsuki test`
             }
           ]
@@ -98,10 +106,10 @@ itsuki test`
           title: "Arquitectura y Pipeline del Compilador",
           category: "guide",
           type: "guide",
-          summary: "Pipeline completo: Preprocesador -> Lexer -> Parser -> Semantics -> Optimizer -> Codegen.",
-          signature: "Source (.suki) -> AST -> Semantics -> Optimized AST -> ASM (.s) -> Linker (GCC)",
+          summary: "Pipeline completo: Preprocesador -> Lexer -> Parser -> Semantics -> Optimizer -> Codegen -> LLVM Clang.",
+          signature: "Source (.suki) -> AST -> Semantics -> Optimized AST -> ASM (.s) -> Linker (LLVM Clang / GCC)",
           what: "El compilador sigue una arquitectura limpia de fases desacopladas, lo que garantiza velocidad máxima, diagnósticos amigables y ausencia total de fugas de memoria gracias a Bump Allocation.",
-          how: "1. Preprocessor: Expande macros, resuelve directivas #include del sistema y de paquetes GitHub.\\n2. Lexer & Parser: Tokenizan y arman el Árbol de Sintaxis Abstracta (AST) alojando todos los nodos en un bloque contiguo (Arena Allocator).\\n3. Semantic Analysis: Resuelve scopes y valida compatibilidad de tipos estrictamente antes de emitir código.\\n4. Optimizer: Plegado de constantes matemáticas/lógicas y poda de ramas muertas (DCE).\\n5. Codegen: Emite instrucciones nativas x86 con manejo de ABI y shadow space.",
+          how: "1. Preprocessor: Expande macros, resuelve directivas #include del sistema y de paquetes GitHub.\\n2. Lexer & Parser: Tokenizan y arman el Árbol de Sintaxis Abstracta (AST) alojando todos los nodos en un bloque contiguo (Arena Allocator).\\n3. Semantic Analysis: Resuelve scopes y valida compatibilidad de tipos estrictamente antes de emitir código.\\n4. Optimizer: Pases de optimización industrial: Inlining IPO, CTFE, Auto-Vectorización SIMD, Live Ranges y TBAA.\\n5. Codegen: Emite instrucciones nativas x86 con manejo de ABI y shadow space, enlazadas vía LLVM Clang.",
           examples: [
             {
               title: "Inspeccionar el ensamblador resultante",
@@ -109,6 +117,41 @@ itsuki test`
 itsuki asm hola.suki
 
 # Ver el archivo hola.s generado con las directivas x86`
+            }
+          ]
+        },
+        {
+          id: "industrial-optimizations",
+          title: "Motor de Optimizaciones Industriales",
+          category: "guide",
+          type: "guide",
+          summary: "IPO Inlining, CTFE (const fn), Auto-Vectorización SIMD, Live Ranges y TBAA para igualar a C, C++ y Rust.",
+          signature: "itsuki build programa.suki -O3 -m64",
+          what: "Itsuki integra un conjunto de pases de optimización industrial a nivel de AST y generación de código que eliminan por completo sobrecostos de llamadas, reducen el uso de stack y vectorizan bucles computacionales.",
+          how: "1. IPO Inlining: Expansión de funciones hoja pequeñas (<= 12 sentencias) eliminando el costo de call/ret.\\n2. CTFE: Evaluación en tiempo de compilación de funciones puras con argumentos constantes a literales directos (0 ns overhead).\\n3. Auto-Vectorización SIMD: Transforma bucles for canónicos sobre arrays en instrucciones SSE2/AVX de 128-bit procesando 4 enteros por ciclo.\\n4. Live-Range Interval Allocation: Escaneo lineal de tiempo de vida para reusar registros físicos callee-saved sin stack spilling.\\n5. TBAA: Análisis de alias para suprimir recargas redundantes de memoria.",
+          examples: [
+            {
+              title: "Evaluación en Tiempo de Compilación (CTFE) y SIMD",
+              code: `#include <fundamental.huki>
+
+func const_factorial(n: int) -> int {
+    if (n <= 1) { return 1; }
+    return n * const_factorial(n - 1);
+}
+
+func main() -> int {
+    // Evaluado a 120 directamente en compilación (0 ns en runtime):
+    var f5: int = const_factorial(5);
+
+    // Auto-vectorizado automáticamente a SIMD 128-bit:
+    var a: int[32];
+    var b: int[32];
+    var c: int[32];
+    for (var i: int = 0; i < 32; i++) {
+        c[i] = a[i] + b[i];
+    }
+    return 0;
+}`
             }
           ]
         },
@@ -145,55 +188,62 @@ https://github.com/Apolo1061/itsuki-lang`
           title: "Variables y Tipos de Datos",
           category: "syntax",
           type: "syntax",
-          summary: "Declaración con var, tipado estático, tipos primitivos y enteros de ancho fijo.",
-          signature: "var <nombre>: <tipo> = <expresión>;",
-          what: "Itsuki es fuertemente tipado. Las variables se declaran con la palabra clave var, seguida del nombre, dos puntos y el tipo. También admite inferencia y constantes con const.",
-          how: "Las variables locales se reservan en el stack frame relativo al puntero base (%rbp en 64 bits o %ebp en 32 bits). Los tipos numéricos se mapean directamente a registros de tamaño apropiado (int8 en %al, int16 en %ax, int32 en %eax, int64 y punteros en %rax).",
+          summary: "Declaración con var, tipado estático, tipos primitivos, enteros sin signo (uint) e inferencia auto.",
+          signature: "var <nombre>: <tipo> = <expresión>;  var <nombre> = <expresión>;",
+          what: "Itsuki es fuertemente tipado. Las variables se declaran con la palabra clave var, seguida del nombre, dos puntos y el tipo. También admite inferencia estática con auto o asignación directa, y constantes con const.",
+          how: "Las variables locales se reservan en el stack frame o en registros físicos optimizados mediante Linear Scan. Los tipos se mapean directamente a registros de tamaño apropiado (int8/uint8 en %al, int16/uint16 en %ax, int32/uint32 en %eax, int64/uint64/punteros en %rax, float/double en %xmm). Las operaciones sin signo generan comparaciones y divisiones unsigned (ja, jb, divl).",
           params: [
             { name: "int / int32", type: "tipo (4 bytes)", desc: "Entero con signo de 32 bits estándar (-2^31 a 2^31-1)." },
+            { name: "uint32", type: "tipo (4 bytes)", desc: "Entero sin signo de 32 bits (0 a 4,294,967,295)." },
             { name: "int64", type: "tipo (8 bytes)", desc: "Entero de 64 bits de precisión extendida." },
+            { name: "uint64 / usize", type: "tipo (8 bytes)", desc: "Entero sin signo de 64 bits (0 a 18,446,744,073,709,551,615)." },
             { name: "float", type: "tipo (4 bytes)", desc: "Número de punto flotante simple precisión (registro SSE2 %xmm)." },
             { name: "double", type: "tipo (8 bytes)", desc: "Número de punto flotante doble precisión (registro SSE2 %xmm)." },
-            { name: "char / int8", type: "tipo (1 byte)", desc: "Carácter o entero de 8 bits." },
+            { name: "char / int8", type: "tipo (1 byte)", desc: "Carácter o entero con signo de 8 bits." },
+            { name: "uint8", type: "tipo (1 byte)", desc: "Entero sin signo de 8 bits (0 a 255)." },
             { name: "bool", type: "tipo (1 byte)", desc: "Valor booleano true (1) o false (0)." },
+            { name: "auto", type: "inferencia", desc: "Deducción estática del tipo basada en el valor asignado." },
             { name: "char*", type: "tipo (puntero)", desc: "Puntero a cadena de caracteres terminada en byte nulo (\\0)." }
           ],
           examples: [
             {
-              title: "Ejemplos de Variables",
+              title: "Ejemplos de Variables y Tipos Modernos",
               code: `var edad: int = 25;
+var u_val: uint32 = 3500000000;
+var u_max: uint64 = 18446744073709551615;
 var pi: float = 3.14159;
 var e: double = 2.718281828459;
-var id_grande: int64 = 9223372036854775807;
 var inicial: char = 'A';
 var activo: bool = true;
-var mensaje: char* = "Itsuki Language";`
+var mensaje: char* = "Itsuki v6.0 Language";
+var deducido = 42; // auto deducido a int`
             }
           ]
         },
         {
           id: "functions",
-          title: "Funciones y Parámetros",
+          title: "Funciones y Funciones Variádicas",
           category: "syntax",
           type: "syntax",
-          summary: "Definición de funciones, parámetros tipados, valor de retorno y funciones inline.",
-          signature: "fn <nombre>(<param>: <tipo>, ...) -> <tipo_retorno> { ... }",
-          what: "Las funciones se definen con la palabra reservada fn. Los parámetros son obligatorios con su tipo y el tipo de retorno se especifica con ->. Si no devuelve nada se usa -> void.",
-          how: "En 64 bits bajo Windows, los primeros 4 parámetros se transmiten en registros (%rcx, %rdx, %r8, %r9) y se reserva el Shadow Space obligatorio de 32 bytes en la pila. En SysV AMD64 (Linux), se transmiten en (%rdi, %rsi, %rdx, %rcx, %r8, %r9). El retorno se entrega en %rax (o %xmm0 para float/double).",
+          summary: "Definición con func / fn, parámetros tipados, valor de retorno y parámetros variádicos (...).",
+          signature: "func <nombre>(<param>: <tipo>, ...) -> <tipo_retorno> { ... }",
+          what: "Las funciones se definen con la palabra reservada func (o fn). Los parámetros son obligatorios con su tipo y el tipo de retorno se especifica con ->. Admite funciones variádicas con sintaxis '...' para aceptar número variable de argumentos al estilo printf.",
+          how: "En 64 bits bajo Windows, los primeros 4 parámetros se transmiten en registros (%rcx, %rdx, %r8, %r9) con Shadow Space de 32 bytes. En SysV AMD64 (Linux), se transmiten en (%rdi, %rsi, %rdx, %rcx, %r8, %r9). El optimizador aplica Inlining Interprocedimental (IPO) a funciones hoja compactas (<= 12 sentencias) eliminando el costo de llamada.",
           examples: [
             {
-              title: "Funciones con retorno y void",
-              code: `fn sumar(a: int, b: int) -> int {
+              title: "Funciones con retorno y variádicas",
+              code: `func sumar(a: int, b: int) -> int {
     return a + b;
 }
 
-fn saludar(nombre: char*) -> void {
-    println(f"¡Hola, {nombre}!");
+func log_debug(nivel: int, ...) -> void {
+    // Acepta número variable de argumentos
 }
 
-fn main() -> void {
+func main() -> int {
     var res: int = sumar(15, 30);
-    saludar("Mundo");
+    println(f"Resultado: {res}");
+    return 0;
 }`
             }
           ]
@@ -252,38 +302,39 @@ fn main() -> void {
         },
         {
           id: "classes-methods",
-          title: "Clases y Métodos Orientados a Objetos",
+          title: "Clases, Herencia (:-:) y Devirtualización",
           category: "syntax",
           type: "syntax",
-          summary: "POO en Itsuki: class, constructores, this, visibilidad public/private y métodos.",
-          signature: "class <Nombre> { public: fn Metodo() -> void; };",
-          what: "Itsuki soporta Programación Orientada a Objetos de alto rendimiento. Las clases permiten encapsular estado y comportamiento, con soporte para constructores y la referencia this.",
-          how: "Bajo el capó, las clases se compilan a estructuras de datos en C/ensamblador, y los métodos reciben un puntero oculto this como primer argumento en los registros correspondientes de la convención de llamadas.",
+          summary: "POO avanzada: herencia con :-:, virtual, override, VTables, Devirtualización Estática y destructores ~Clase().",
+          signature: "class Derivada :-: Base { public: override func metodo() -> int; };",
+          what: "Itsuki soporta Programación Orientada a Objetos de nivel industrial con polimorfismo dinámico y estático. Las clases se heredan mediante el operador :-:, y los métodos virtuales se declaran con virtual y se sobreescriben con override.",
+          how: "Bajo el capó, las clases polimórficas incluyen un puntero oculto a su VTable en el offset 0. Para llamadas donde el tipo concreto es conocido en compilación, el optimizador devirtualiza automáticamente la llamada a un 'call' directo (0 ns de costo indirecto). Si se llama a través de un puntero genérico a la base, despacha dinámicamente mediante el slot de la VTable.",
           examples: [
             {
-              title: "Clase Contador",
-              code: `class Contador {
-    var valor: int;
-
+              title: "Herencia con :-:, virtual y devirtualización",
+              code: `class Dispositivo {
 public:
-    fn Contador(inicio: int) -> void {
-        this.valor = inicio;
-    }
-
-    fn incrementar() -> void {
-        this.valor++;
-    }
-
-    fn obtener() -> int {
-        return this.valor;
+    virtual func encender() -> int {
+        return 1;
     }
 };
 
-fn main() -> void {
-    var c: Contador;
-    c.Contador(10);
-    c.incrementar();
-    println(f"Contador: {c.obtener()}"); // 11
+class Servidor :-: Dispositivo {
+public:
+    override func encender() -> int {
+        return 100;
+    }
+};
+
+func main() -> int {
+    var srv: Servidor;
+    // Devirtualización estática: llamada directa a Servidor::encender (0 ns)
+    println(srv.encender());
+
+    // Polimorfismo dinámico vía VTable
+    var ptr: Dispositivo* = &srv;
+    println(ptr->encender());
+    return 0;
 }`
             }
           ]
@@ -909,6 +960,142 @@ fn main() -> void {
 sleep(500); // Pausa 500ms
 var t1: int = get_tick_count();
 println(f"Han pasado aprox {t1 - t0} ms.");`
+            }
+          ]
+        },
+        {
+          id: "fundamental-memory-allocators",
+          title: "Arena Allocator y Slab Pool Allocator O(1)",
+          category: "fundamental",
+          type: "fn",
+          summary: "Gestores de memoria de ultra-alta velocidad O(1) integrados en fundamental.",
+          signature: "arena_create(cap) | arena_alloc(a, sz) | slab_create(sz, cap) | slab_alloc(p)",
+          what: "Provee asignadores de memoria de tiempo constante O(1) que eliminan la fragmentación y la sobrecarga de malloc/free.",
+          how: "Arena Allocator (Bump Allocation): un bloque lineal contiguo donde las reservas avanzan un puntero offset en 1 ciclo, y se liberan todas a la vez con arena_reset() o arena_destroy(). Slab Pool: piscina preasignada de objetos de tamaño fijo enlazados mediante free_list, con asignación y liberación O(1).",
+          params: [
+            { name: "capacity / cap", type: "uint64", desc: "Capacidad total de bytes o elementos." },
+            { name: "size / item_size", type: "uint64", desc: "Tamaño en bytes por objeto a reservar." }
+          ],
+          returns: "Puntero opaco o estructura de asignador",
+          examples: [
+            {
+              title: "Uso de Arena y Slab Pool",
+              code: `using namespace fundamental;
+
+func main() -> int {
+    // 1. Arena Allocator O(1)
+    var arena: Arena* = arena_create(1024 * 1024); // 1 MB
+    var buffer: char* = arena_alloc(arena, 256);
+    arena_reset(arena);
+    arena_destroy(arena);
+
+    // 2. Slab Pool Allocator O(1)
+    var pool: SlabPool* = slab_create(64, 100);
+    var item1: void* = slab_alloc(pool);
+    slab_free(pool, item1);
+    slab_destroy(pool);
+    return 0;
+}`
+            }
+          ]
+        },
+        {
+          id: "fundamental-sstring",
+          title: "Small String Optimization (SString SSO 0-Heap)",
+          category: "fundamental",
+          type: "fn",
+          summary: "Estructura de cadenas optimizada: hasta 24 bytes en stack sin tocar el heap.",
+          signature: "sstring_init(s, str) | sstring_c_str(s) | sstring_append(s, str) | sstring_free(s)",
+          what: "Implementa SSO (Small String Optimization) para almacenar textos cortos (hasta 24 caracteres) directamente inline dentro del struct en la pila sin reservar memoria dinámica.",
+          how: "Si la longitud es <= 24 bytes, copia los caracteres en inline_buf evitando llamadas a malloc. Si supera el umbral, promueve automáticamente a heap_ptr garantizando rendimiento O(1) para cadenas cortas.",
+          params: [
+            { name: "s", type: "SString*", desc: "Puntero a la estructura SString." },
+            { name: "str", type: "char*", desc: "Cadena de caracteres inicial o a anexar." }
+          ],
+          returns: "char* con el puntero C-string representativo",
+          examples: [
+            {
+              title: "Cadenas con Small String Optimization",
+              code: `using namespace fundamental;
+
+func main() -> int {
+    var s: SString;
+    sstring_init(&s, "Itsuki SSO");
+    sstring_append(&s, " v6.0");
+
+    println(f"Texto: {sstring_c_str(&s)}");
+    println(f"Longitud: {s.len} - Usa Heap: {s.is_heap}"); // is_heap = 0
+    sstring_free(&s);
+    return 0;
+}`
+            }
+          ]
+        },
+        {
+          id: "fundamental-simd",
+          title: "Operaciones Vectoriales SIMD 128-bit (SSE2 / AVX)",
+          category: "fundamental",
+          type: "fn",
+          summary: "Primitivas SIMD para operar sobre arrays contiguos a velocidad nativa (4 elementos/ciclo).",
+          signature: "simd_add_i32(a, b, res, n) | simd_sub_i32 | simd_mul_i32 | simd_dot_i32 | simd_set_i32",
+          what: "Procesa arreglos numéricos enteros y flotantes mediante instrucciones vectoriales SSE/AVX de 128 bits, realizando 4 operaciones de 32 bits en paralelo por ciclo de reloj.",
+          how: "Emite instrucciones movdqu, paddd, psubd, pmulld, mulps, addps directamente sobre registros %xmm0-%xmm7, con bucle escalar para elementos remanentes.",
+          params: [
+            { name: "a, b", type: "int* | float*", desc: "Punteros a los arreglos de entrada." },
+            { name: "res", type: "int* | float*", desc: "Arreglo receptor de los resultados." },
+            { name: "count / n", type: "int", desc: "Cantidad total de elementos a procesar." }
+          ],
+          returns: "void o resultado escalar para producto punto (simd_dot)",
+          examples: [
+            {
+              title: "Suma Vectorial SIMD",
+              code: `using namespace fundamental;
+
+func main() -> int {
+    var a: int[32];
+    var b: int[32];
+    var c: int[32];
+
+    for (var i: int = 0; i < 32; i++) {
+        a[i] = 10;
+        b[i] = 20;
+    }
+
+    // Procesa 4 enteros simultáneamente por instrucción vectorial
+    simd_add_i32(a, b, c, 32);
+    println(f"c[0] = {c[0]}"); // 30
+    return 0;
+}`
+            }
+          ]
+        },
+        {
+          id: "fundamental-intrinsics",
+          title: "Intrínsecos de Hardware de CPU",
+          category: "fundamental",
+          type: "fn",
+          summary: "Instrucciones de CPU en 1 ciclo: popcount, clz, ctz, sqrt, bswap32.",
+          signature: "__builtin_popcount(x) | __builtin_clz(x) | __builtin_ctz(x) | __builtin_sqrt(f) | __builtin_bswap32(x)",
+          what: "Acceso directo a instrucciones especializadas del silicio x86 sin costo de llamadas a funciones externas.",
+          how: "Mapea directamente a instrucciones de ensamblador de un ciclo: popcntl, bsr/bsf o lzcnt, sqrtsd, y bswapl.",
+          params: [
+            { name: "x", type: "int | uint32", desc: "Valor numérico entero a analizar." },
+            { name: "f", type: "double", desc: "Número flotante para cálculo de raíz cuadrada." }
+          ],
+          returns: "int con bits contados o double con raíz cuadrada calculada",
+          examples: [
+            {
+              title: "Uso de Intrínsecos de Hardware",
+              code: `func main() -> int {
+    var bits: int = __builtin_popcount(15);      // 4 bits en '1' (popcnt)
+    var ceros_izq: int = __builtin_clz(16);      // Leading zeros
+    var ceros_der: int = __builtin_ctz(16);      // Trailing zeros
+    var invertido: int = __builtin_bswap32(0x12345678); // 0x78563412
+    var raiz: double = __builtin_sqrt(64.0);     // 8.0 (sqrtsd)
+
+    println(f"Bits en 1: {bits}, Raiz: {raiz}");
+    return 0;
+}`
             }
           ]
         }
